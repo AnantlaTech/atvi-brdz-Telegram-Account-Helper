@@ -1,7 +1,8 @@
 //Path: hooks/useSDK.tsx
 
 import { useState, useEffect, useCallback } from 'react';
-import brdzSDK from '@anantla/brdz-sdk';
+
+import brdzSDK from 'anantla_sdk';
 
 interface SDKState {
   sdkReady: boolean;

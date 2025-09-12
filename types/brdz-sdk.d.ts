@@ -1,6 +1,6 @@
 //Path: types/brdz-sdk.d.ts
 
-declare module '@anantla/brdz-sdk' {
+declare module 'anantla_sdk' {
   // Data Interfaces
   interface DashboardStats {
     total_orders: number;
