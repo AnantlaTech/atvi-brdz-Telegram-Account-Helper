@@ -1,4 +1,4 @@
-//Path: components\dashboard\Sidebar.tsx
+//Path: components/dashboard/Sidebar.tsx
 
 'use client';
 
@@ -15,7 +15,8 @@ import {
   Copy,
   Eye,
   EyeOff,
-  CheckCircle
+  CheckCircle,
+  Wallet
 } from 'lucide-react';
 
 const navigation = [
@@ -28,6 +29,12 @@ const navigation = [
     name: 'Profile',
     href: '/profile',
     icon: User,
+  },
+  {
+    name: 'Wallet',
+    href: '/wallet',
+    icon: Wallet,
+    requiresEkyc: true,
   },
   {
     name: 'eKYC Status',
@@ -84,6 +91,14 @@ export const Sidebar: React.FC = () => {
 
   const { token, userId, ekycStatus } = getUserCredentials();
 
+  // Filter navigation based on eKYC status
+  const filteredNavigation = navigation.filter(item => {
+    if (item.requiresEkyc) {
+      return ekycStatus === 'APPROVED';
+    }
+    return true;
+  });
+
   if (!isReady) {
     return (
       <div className="bg-white w-64 min-h-screen shadow-lg flex items-center justify-center">
@@ -112,7 +127,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <nav className="px-4 space-y-1 flex-1">
-        {navigation.map((item) => {
+        {filteredNavigation.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
 
@@ -132,9 +147,28 @@ export const Sidebar: React.FC = () => {
                 }`}
               />
               {item.name}
+              {/* Show badge for wallet if eKYC approved */}
+              {item.name === 'Wallet' && ekycStatus === 'APPROVED' && (
+                <span className="ml-auto bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                  Active
+                </span>
+              )}
             </Link>
           );
         })}
+
+        {/* Show wallet notice if eKYC not approved */}
+        {ekycStatus !== 'APPROVED' && (
+          <div className="px-4 py-3 text-sm text-gray-500">
+            <div className="flex items-center space-x-2">
+              <Wallet className="w-4 h-4 text-gray-400" />
+              <span>Wallet</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1 ml-6">
+              Complete eKYC to unlock
+            </p>
+          </div>
+        )}
       </nav>
 
       {/* Telegram Bot Credentials Section */}

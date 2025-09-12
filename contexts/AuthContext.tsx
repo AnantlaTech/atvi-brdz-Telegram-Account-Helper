@@ -9,6 +9,7 @@ interface AuthContextType {
   user: any;
   token: string | null;
   ekycStatus: string;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => void;
@@ -144,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     token,
     ekycStatus,
+    isAuthenticated: !!token && !!user?.user_id,
     login,
     register,
     logout,
