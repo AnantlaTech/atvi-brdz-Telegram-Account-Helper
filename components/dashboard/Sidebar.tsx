@@ -238,9 +238,24 @@ export const Sidebar: React.FC = () => {
                   </div>
                 </div>
                 
-                <p className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
-                  💡 Use these credentials in your Telegram Bot to access MCP features
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-blue-700 bg-blue-100 p-2 rounded">
+                    💡 Use these credentials in your Telegram Bot to access MCP features
+                  </p>
+                  
+                  <a 
+                    href="https://t.me/BRDZ_shop_bot" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+                  >
+                    <span className="mr-2">🤖</span>
+                    Open BRDZ Shop Bot
+                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
               </div>
             )}
           </div>
