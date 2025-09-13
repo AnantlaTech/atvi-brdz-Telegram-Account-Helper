@@ -27,6 +27,14 @@ interface BlockchainOption {
   color: string;
 }
 
+interface ChainResult {
+  chain: string;
+  success: boolean;
+  address?: string;
+  mnemonic?: string | null;
+  error?: string;
+}
+
 const blockchainOptions: BlockchainOption[] = [
   {
     id: 'sepolia',
@@ -54,9 +62,6 @@ const blockchainOptions: BlockchainOption[] = [
 export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWalletModalProps) {
   const { user } = useAuth();
   const { sdk, canMakeRequests } = useSDK();
-  
-  
-  
   const [walletName, setWalletName] = useState('');
   const [selectedBlockchains, setSelectedBlockchains] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +83,25 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
     );
   };
 
+  // ✅ FIX: Add missing handleClose function
+  const handleClose = () => {
+    if (!isCreating) {
+      setWalletName('');
+      setSelectedBlockchains([]);
+      setSearchQuery('');
+      setError(null);
+      onClose();
+    }
+  };
+
+  // ✅ FIX: Add missing handleSuccessClose function  
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    setSuccessData(null);
+    onWalletCreated();
+    handleClose();
+  };
+
   const handleCreateWallet = async () => {
     // Clear previous errors
     setError(null);
@@ -97,23 +121,26 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
       return;
     }
 
+    // Validasi blockchain selection BEFORE setIsCreating
+    if (selectedBlockchains.length === 0) {
+      setError('Please select at least one blockchain');
+      return;
+    }
+
     try {
       setIsCreating(true);
       setError(null);
 
       const userId = typeof user.user_id === 'string' ? parseInt(user.user_id) : user.user_id;
+      const primaryChainId = selectedBlockchains[0];
 
-
-
-      // Step 1: Create the wallet
+      // Step 1: Create the wallet with first chain
       const createResponse = await sdk.cryptoWallet.createWallet({
         wallet_name: walletName.trim(),
-        user_id: userId
+        user_id: userId,
+        chain_id: primaryChainId
       });
 
-
-
-      // Fix: Handle backend response structure
       if (!createResponse?.success) {
         const errorMessage = createResponse?.error?.message || 
                            createResponse?.message || 
@@ -121,7 +148,6 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
         throw new Error(errorMessage);
       }
 
-      // Backend returns data object with bw_id
       const walletData = createResponse.data;
       const bwId = walletData?.bw_id;
 
@@ -129,47 +155,39 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
         throw new Error('Wallet created but no ID returned');
       }
 
+      // ✅ FIX: Add ALL selected chains including primary
+      const chainResults: ChainResult[] = [];
 
-
-      // Step 2: Add selected blockchains if any
-      const chainResults = [];
-      if (selectedBlockchains.length > 0) {
-
-        
-        for (const chainId of selectedBlockchains) {
-          try {
-
-            
-            const chainResponse = await sdk.cryptoWallet.addChainAddress(bwId, { 
-              chain_id: chainId 
+      // Add ALL selected chains (don't skip any)
+      for (let i = 0; i < selectedBlockchains.length; i++) {
+        const chainId = selectedBlockchains[i];
+        try {
+          const chainResponse = await sdk.cryptoWallet.addChainAddress(bwId, { 
+            chain_id: chainId 
+          });
+          
+          if (chainResponse?.success) {
+            chainResults.push({
+              chain: chainId,
+              success: true,
+              address: chainResponse.data?.wallet_address,
+              mnemonic: chainResponse.data?.mnemonic || null
             });
-            
-
-            
-            if (chainResponse?.success) {
-              chainResults.push({
-                chain: chainId,
-                success: true,
-                address: chainResponse.data?.wallet_address,
-                mnemonic: chainResponse.data?.mnemonic
-              });
-
-            } else {
-              chainResults.push({
-                chain: chainId,
-                success: false,
-                error: chainResponse?.error?.message || 'Unknown error'
-              });
-      
-            }
-          } catch (chainError: any) {
-
+          } else {
             chainResults.push({
               chain: chainId,
               success: false,
-              error: chainError.message || 'Network error'
+              error: chainResponse?.error?.message || 'Unknown error'
             });
           }
+        } catch (chainError: unknown) {
+          // ✅ FIX: Proper error type handling
+          const errorMessage = chainError instanceof Error ? chainError.message : 'Network error';
+          chainResults.push({
+            chain: chainId,
+            success: false,
+            error: errorMessage
+          });
         }
       }
 
@@ -186,34 +204,36 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
       if (failedChains.length > 0) {
         const failedChainNames = failedChains.map(r => r.chain).join(', ');
         console.warn(`Some chains failed to add: ${failedChainNames}`);
-        // Still continue - wallet was created successfully
       }
 
-      // Show mnemonic backup reminder if any chains were added
-      if (successfulChains.length > 0) {
-        const mnemonic = successfulChains[0]?.mnemonic;
-        if (mnemonic) {
-          setSuccessData({ mnemonic, walletName: walletName.trim() });
-          setShowSuccessModal(true);
-          return; // Don't close modal yet, show success modal first
-        }
+      // ✅ FIX: Proper mnemonic handling with null check
+      const mnemonicChain = successfulChains.find(r => r.mnemonic && r.mnemonic !== null);
+      if (mnemonicChain?.mnemonic) {
+        setSuccessData({ 
+          mnemonic: mnemonicChain.mnemonic, 
+          walletName: walletName.trim() 
+        });
+        setShowSuccessModal(true);
+        return;
       }
 
       // Success - refresh wallet list
       onWalletCreated();
       handleClose();
       
-    } catch (error: any) {
-      
-      // Enhanced error handling
+    } catch (error: unknown) {
+      // ✅ FIX: Improved error handling with proper typing
       let errorMessage = 'Failed to create wallet';
       
-      if (error.message) {
+      if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (error.response?.data?.error?.message) {
-        errorMessage = error.response.data.error.message;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      } else if (typeof error === 'object' && error !== null) {
+        const err = error as any;
+        if (err.response?.data?.error?.message) {
+          errorMessage = err.response.data.error.message;
+        } else if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        }
       }
       
       setError(errorMessage);
@@ -222,26 +242,6 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
     }
   };
 
-  const handleClose = () => {
-    if (isCreating) return; // Prevent closing while creating
-    setWalletName('');
-    setSelectedBlockchains([]);
-    setSearchQuery('');
-    setError(null);
-    onClose();
-  };
-
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    setSuccessData(null);
-    onWalletCreated();
-    handleClose();
-  };
-
-
-  
-
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
@@ -249,7 +249,6 @@ export function CreateWalletModal({ isOpen, onClose, onWalletCreated }: CreateWa
           <DialogTitle className="flex items-center gap-2">
             <span>Add New Wallet</span>
             {isCreating && <LoadingSpinner size="sm" />}
-
           </DialogTitle>
         </DialogHeader>
 
